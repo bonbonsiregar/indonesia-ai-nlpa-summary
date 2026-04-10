@@ -37,6 +37,10 @@ Both notebooks follow the same pipeline; only the model checkpoint differs.
   - Lists the top 15 most frequent n-grams in training summaries.
   - Uses a heuristic (smallest n where repeated n-gram ratio ≤ 5%) to recommend `no_repeat_ngram_size` for generation.
   - This EDA-driven value is used instead of a hardcoded default, preventing overly aggressive n-gram blocking that would suppress natural Indonesian bigram repetition.
+* **Novel N-gram Ratio on Reference Summaries:**
+  - Measures how much of each human summary uses n-grams that do not appear in the source article.
+  - Serves as a simple proxy for dataset abstractiveness.
+  - This helps distinguish between repetition inside summaries and genuine abstraction relative to the source article.
 
 ## 5) Tokenization and Preprocessing
 * Converts Pandas DataFrames into a Hugging Face `DatasetDict` with splits: `train`, `validation`, `test`.
@@ -90,6 +94,10 @@ Two evaluation approaches:
 1. **Official Trainer evaluation** — `trainer.evaluate()` on the full 5,000-sample tokenized test split using `predict_with_generate=True` and the `compute_metrics` function.
 2. **Direct inference ROUGE** — runs `model.generate()` on the **same 250-sample baseline subset** from Section 8, using the same `generate_summary()` function. This ensures a direct before/after comparison with identical test articles and decoding strategy.
 * Stores results as `post_ft_scores` for the downstream comparison table.
+* **Novel N-gram Ratio on Generated Summaries:**
+  - Compares reference summaries, extractive baseline summaries, pre-fine-tuning outputs, and post-fine-tuning outputs on the same 250-sample subset.
+  - Measures the percentage of summary n-grams not found in the source article for n = 1, 2, 3, 4.
+  - Helps explain cases where ROUGE improves but human-perceived quality does not.
 
 ## 11) Comparison Table & Qualitative Demo
 
@@ -122,3 +130,18 @@ Two evaluation approaches:
 | `gradient_accumulation_steps=2` | Effective batch of 32 with per-device batch of 16 — more stable than batch_size=32 directly |
 | 250-sample test subset | Reproducible subset (seed=42) used consistently across Sections 6, 8, 10, and 11 for fair comparison |
 | `EarlyStoppingCallback(patience=3)` | Prevents overfitting by stopping training if `eval_rougeL` doesn't improve for 3 consecutive evaluation epochs |
+---
+
+## Conclusion
+
+The notebook shows that fine-tuning `cahya/bert2bert-indonesian-summarization` on a local Liputan6 subset improves summarization quality, but the improvement is still limited. On the same 250-sample test subset, ROUGE increases from **26.42 / 11.62 / 22.39** before fine-tuning to **29.54 / 13.02 / 24.99** after fine-tuning for ROUGE-1 / ROUGE-2 / ROUGE-L. This means the model does learn from the task-specific data, but its generated summaries are still substantially weaker than stronger baselines.
+
+The clearest evidence is the comparison against both the extractive baseline and the published Liputan6 paper results. The dataset-provided extractive summaries reach **50.42 / 29.23 / 40.55** on the same sampled subset, while the AACL 2020 paper reports **41.08 / 22.85 / 38.01** for **BertExtAbs IndoBERT** on the full canonical test set. In other words, our fine-tuned BERT2BERT model remains well below both an extractive reference baseline and the paper's stronger IndoBERT-based abstractive system.
+
+One important reason is scale. This notebook trains on only **17,500** training examples, whereas the paper uses the full canonical training split of **193,883** articles, with **10,972** examples each for validation and test. Because of this large gap in training data, the results here should be interpreted more as a low-resource local experiment than as a direct reproduction of the paper's benchmark.
+
+The novel n-gram analysis adds an important nuance. On the 250-sample evaluation subset, the pre-fine-tuning model is more novel than the post-fine-tuning model across all n-gram levels: **Novel-1** drops from **22.25** to **20.44**, **Novel-2** from **45.89** to **42.92**, **Novel-3** from **61.51** to **58.91**, and **Novel-4** from **72.12** to **70.75** after fine-tuning. This suggests that fine-tuning makes the model slightly more extractive, likely increasing source overlap and helping ROUGE, but not always improving human-perceived summary quality.
+
+The reference summaries show another useful pattern: **Novel-1 = 15.12**, **Novel-2 = 51.06**, **Novel-3 = 70.26**, and **Novel-4 = 81.33**. This means the human summaries still reuse many source words, but recombine them into new multi-word phrases. By contrast, the extractive baseline stays near zero on all novelty measures, confirming that the metric behaves as expected.
+
+Taken together, the qualitative examples and the novelty analysis support the same conclusion. Although some generated summaries become more concise after fine-tuning, many still show incomplete coverage, awkward phrasing, dropped entities, or loss of focus. So the most balanced conclusion is that the encoder-decoder BERT2BERT setup is not inherently invalid for Indonesian summarization, but in this project configuration it is not yet strong enough to produce consistently competitive summaries for Liputan6 news articles.
