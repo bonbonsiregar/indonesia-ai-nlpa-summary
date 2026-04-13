@@ -2,11 +2,8 @@
 
 This document describes the local fine-tuning notebooks for abstractive text summarization on the Liputan6 dataset using cahya's pretrained encoder-decoder models.
 
-**Notebooks:**
+**Notebook:**
 - `project_2_(local_bert2bert).ipynb` — uses `cahya/bert2bert-indonesian-summarization` (BERT encoder + BERT decoder)
-- `project_2_(local_bert2gpt).ipynb` — uses `cahya/bert2gpt-indonesian-summarization` (BERT encoder + GPT-2 decoder)
-
-Both notebooks follow the same pipeline; only the model checkpoint differs.
 
 ---
 
@@ -44,7 +41,7 @@ Both notebooks follow the same pipeline; only the model checkpoint differs.
 
 ## 5) Tokenization and Preprocessing
 * Converts Pandas DataFrames into a Hugging Face `DatasetDict` with splits: `train`, `validation`, `test`.
-* Loads the pre-trained tokenizer from the respective model checkpoint (`cahya/bert2bert-*` or `cahya/bert2gpt-*`).
+* Loads the pre-trained tokenizer from the model checkpoint (`cahya/bert2bert-indonesian-summarization`).
 * Tokenizes inputs (articles, `max_length=512`) and targets (summaries, `max_length=128`) with `padding="max_length"` and `truncation=True`.
 * Replaces padding token IDs in labels with `-100` so they are ignored by the loss function.
 
@@ -87,7 +84,7 @@ Both notebooks follow the same pipeline; only the model checkpoint differs.
 ## 9) Fine-tuning
 * Runs `trainer.train()` on the 17,500-sample training split.
 * The model's weights are updated via backpropagation over 8 epochs (with early stopping patience of 3).
-* Saves the fine-tuned model and tokenizer to `PROJECT_ROOT / bert2bert-indonesian-finetuned` (or `bert2gpt-*`).
+* Saves the fine-tuned model and tokenizer to `PROJECT_ROOT / bert2bert-indonesian-finetuned`.
 
 ## 10) Post-fine-tuning Evaluation
 Two evaluation approaches:
@@ -104,7 +101,7 @@ Two evaluation approaches:
 ### 11a) ROUGE Comparison Table
 * Compares our model (pre- and post-fine-tuning) against published baselines from the AACL 2020 paper:
   - **Paper baselines** (full ~10,972 canonical test samples): Lead-2, PTGen, BertAbs mBERT, BertExtAbs mBERT, BertAbs IndoBERT, BertExtAbs IndoBERT ★
-  - **Our results** (same 250 sampled test articles): Extractive summary baseline, BERT2BERT/GPT pre-fine-tuning, BERT2BERT/GPT fine-tuned
+  - **Our results** (same 250 sampled test articles): Extractive summary baseline, BERT2BERT pre-fine-tuning, BERT2BERT fine-tuned
 * Also includes a dataset-provided extractive summary baseline computed on the same 250-sample subset.
 * All ROUGE scores use `use_stemmer=False` for fair comparison with the paper's `pyrouge` results.
 
